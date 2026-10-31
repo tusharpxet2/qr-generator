@@ -12,24 +12,25 @@
     <style>
         :root { --brand-red: #d32f2f; --bg-gray: #f4f6f8; }
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--bg-gray); margin: 0; padding: 20px; }
-        .container { max-width: 1000px; margin: 0 auto; background: #fff; padding: 25px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .container { max-width: 650px; margin: 0 auto; background: #fff; padding: 25px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
         .header { text-align: center; border-bottom: 2px solid var(--brand-red); padding-bottom: 15px; margin-bottom: 20px; }
         .logo { max-height: 60px; object-fit: contain; }
-        .controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; background: #f9f9f9; padding: 15px; border-radius: 6px; margin-bottom: 20px; }
+        .controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; background: #f9f9f9; padding: 15px; border-radius: 6px; margin-bottom: 20px; }
         label { font-weight: bold; font-size: 14px; display: block; margin-bottom: 5px; }
         select, button { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
         button { background: var(--brand-red); color: white; border: none; cursor: pointer; font-weight: bold; transition: 0.2s; }
         button:hover { opacity: 0.9; }
         
-        .output-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px; }
-        .card { border: 1px solid #ddd; border-radius: 6px; padding: 15px; text-align: center; background: #fff; }
-        .card-title { font-size: 14px; font-weight: bold; color: #555; margin-bottom: 10px; }
+        .output-section { text-align: center; margin-top: 20px; }
+        .card { border: 1px solid #ddd; border-radius: 6px; padding: 20px; text-align: center; background: #fff; display: inline-block; width: 100%; max-width: 450px; box-sizing: border-box; }
+        .card-title { font-size: 14px; font-weight: bold; color: #555; margin-bottom: 15px; }
 
-        .printable-label { border: 2px solid #000; padding: 10px; text-align: left; font-family: Arial, sans-serif; font-size: 12px; background: #fff; display: inline-block; width: 90%; }
+        .printable-label { border: 2px solid #000; padding: 12px; text-align: left; font-family: Arial, sans-serif; font-size: 12px; background: #fff; display: inline-block; width: 100%; box-sizing: border-box; }
         .label-header { font-weight: bold; font-size: 14px; text-align: center; text-transform: uppercase; border-bottom: 1px solid #000; padding-bottom: 4px; margin-bottom: 6px; }
         .label-row { display: flex; justify-content: space-between; margin-bottom: 4px; }
         .label-key { font-weight: bold; }
-        .code-container { text-align: center; margin-top: 8px; display: flex; justify-content: center; overflow: hidden; }
+        .code-container { text-align: center; margin-top: 10px; display: flex; justify-content: center; overflow: hidden; }
+        .code-container canvas, .code-container svg { max-width: 100%; height: auto; }
 
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); justify-content: center; align-items: center; z-index: 1000; }
         .modal-content { background: white; padding: 20px; border-radius: 8px; width: 90%; max-width: 500px; text-align: center; }
@@ -47,13 +48,13 @@
 <div class="container">
     <div class="header">
         <img src="images/logo.png" alt="Scorpion Logo" class="logo">
-        <h2>Product Label Code Generator & Verification</h2>
+        <h2>Product Verification Label Generator</h2>
     </div>
 
     <div class="controls">
         <div>
             <label>Select Format Type</label>
-            <select id="printFormat" onchange="refreshCurrentCodes()">
+            <select id="printFormat" onchange="refreshCurrentCode()">
                 <option value="1">Full Label + Code Details</option>
                 <option value="2">Code Only</option>
             </select>
@@ -61,27 +62,22 @@
         <div>
             <label>Generate Action</label>
             <div style="display: flex; gap: 10px;">
-                <button onclick="generateCodes('barcode')">Generate Barcode</button>
-                <button onclick="generateCodes('qrcode')">Generate QR Code</button>
+                <button onclick="generateCode('barcode')">Barcode</button>
+                <button onclick="generateCode('qrcode')">QR Code</button>
             </div>
         </div>
         <div>
-            <label>Camera Verification Test</label>
-            <button onclick="openScanner()" style="background: #2e7d32;">📷 Open Camera Scanner</button>
+            <label>Camera Test</label>
+            <button onclick="openScanner()" style="background: #2e7d32;">📷 Open Scanner</button>
         </div>
     </div>
 
-    <div class="output-grid">
+    <div class="output-section">
         <div class="card">
-            <div class="card-title">Output (Direct Link Payload)</div>
-            <div id="wrapper1a"></div>
-            <button onclick="window.print()" style="margin-top: 10px; width: auto; padding: 5px 15px;">Print Label</button>
-        </div>
-
-        <div class="card">
-            <div class="card-title">Output (Micro Data + Link Payload)</div>
-            <div id="wrapper2a"></div>
-            <button onclick="window.print()" style="margin-top: 10px; width: auto; padding: 5px 15px;">Print Label</button>
+            <div class="card-title" id="cardTitle">QR Code Output</div>
+            <div id="wrapperTarget"></div>
+            <br>
+            <button onclick="window.print()" style="margin-top: 15px; width: auto; padding: 8px 20px;">Print Label</button>
         </div>
     </div>
 </div>
@@ -137,12 +133,7 @@ const productDetails = {
 };
 
 const targetURL = window.location.href.split('?')[0] + "?verify=true&batch=" + encodeURIComponent(productDetails.batchNo);
-const payload1a = targetURL;
-// Optimized payload: puts the URL first so native phone cameras recognize it as a link immediately, followed by query params for micro-data
-const payload2a = `${targetURL}&mfr=${encodeURIComponent(productDetails.manufacturer)}&batch=${encodeURIComponent(productDetails.batchNo)}&item=${encodeURIComponent(productDetails.productName)}`;
-const payload2aBarcode = `MFR: ${productDetails.manufacturer} | BATCH: ${productDetails.batchNo} | VERIFY: ${targetURL}`;
-
-let lastGeneratedType = 'qrcode';
+let currentType = 'qrcode';
 
 function renderLabelHTML(codeElementId, showFullDetails) {
     if (!showFullDetails) {
@@ -164,30 +155,26 @@ function renderLabelHTML(codeElementId, showFullDetails) {
     `;
 }
 
-function generateCodes(type) {
-    lastGeneratedType = type;
+function generateCode(type) {
+    currentType = type;
     const formatOption = document.getElementById('printFormat').value;
     const isFullFormat = (formatOption === "1");
-
-    document.getElementById('wrapper1a').innerHTML = renderLabelHTML('target1a', isFullFormat);
-    document.getElementById('wrapper2a').innerHTML = renderLabelHTML('target2a', isFullFormat);
+    
+    document.getElementById('cardTitle').innerText = type === 'qrcode' ? 'QR Code Output' : 'Short Barcode Output';
+    document.getElementById('wrapperTarget').innerHTML = renderLabelHTML('targetCode', isFullFormat);
 
     if (type === 'qrcode') {
-        new QRCode(document.getElementById('target1a'), { text: payload1a, width: 110, height: 110 });
-        new QRCode(document.getElementById('target2a'), { text: payload2a, width: 110, height: 110 });
+        new QRCode(document.getElementById('targetCode'), { text: targetURL, width: 110, height: 110 });
     } else {
-        const canvas1 = document.createElement('canvas');
-        const canvas2 = document.createElement('canvas');
-        document.getElementById('target1a').appendChild(canvas1);
-        document.getElementById('target2a').appendChild(canvas2);
-
-        JsBarcode(canvas1, payload1a, { format: "CODE128", width: 1.2, height: 45, fontSize: 10, displayValue: true });
-        JsBarcode(canvas2, payload2aBarcode, { format: "CODE128", width: 1.0, height: 45, fontSize: 10, displayValue: true });
+        const canvas = document.createElement('canvas');
+        document.getElementById('targetCode').appendChild(canvas);
+        // Short & highly scannable barcode encoding the batch number
+        JsBarcode(canvas, productDetails.batchNo, { format: "CODE128", width: 1.2, height: 35, fontSize: 10, displayValue: true, margin: 5 });
     }
 }
 
-function refreshCurrentCodes() {
-    generateCodes(lastGeneratedType);
+function refreshCurrentCode() {
+    generateCode(currentType);
 }
 
 let html5QrcodeScanner;
@@ -206,14 +193,19 @@ function closeScanner() {
 
 function onScanSuccess(decodedText) {
     closeScanner();
-    document.getElementById('verificationPage').style.display = 'block';
+    // Validates whether the scanned code matches the product batch or verification link
+    if (decodedText.includes(productDetails.batchNo) || decodedText.includes("verify=true") || decodedText.startsWith("http")) {
+        document.getElementById('verificationPage').style.display = 'block';
+    } else {
+        alert("Scanned Code: " + decodedText);
+    }
 }
 
 if (window.location.search.includes('verify=true')) {
     document.getElementById('verificationPage').style.display = 'block';
 }
 
-window.onload = () => generateCodes('qrcode');
+window.onload = () => generateCode('qrcode');
 </script>
 </body>
 </html>
