@@ -219,21 +219,21 @@ function generateAllCodes(type) {
     const formatOption = document.getElementById('printFormat').value;
     const isFullFormat = (formatOption === "1");
     
-    document.getElementById('wrapper1').innerHTML = renderLabelHTML(products[0], keys[0], 'targetCode1', isFullFormat);
-    document.getElementById('wrapper2').innerHTML = renderLabelHTML(products[1], keys[1], 'targetCode2', isFullFormat);
+    const keys = Object.keys(productDatabase);
+    document.getElementById('wrapper1').innerHTML = renderLabelHTML(productDatabase[keys[0]], keys[0], 'targetCode1', isFullFormat);
+    document.getElementById('wrapper2').innerHTML = renderLabelHTML(productDatabase[keys[1]], keys[1], 'targetCode2', isFullFormat);
 
     if (type === 'qrcode') {
         new QRCode(document.getElementById('targetCode1'), { text: getTargetURL(keys[0]), width: 150, height: 150 });
         new QRCode(document.getElementById('targetCode2'), { text: getTargetURL(keys[1]), width: 150, height: 150 });
     } else {
-        // Using <img> element generation for JsBarcode ensures 100% reliable printing
-        const img1 = document.createElement('img');
-        const img2 = document.createElement('img');
-        document.getElementById('targetCode1').appendChild(img1);
-        document.getElementById('targetCode2').appendChild(img2);
+        const canvas1 = document.createElement('canvas');
+        const canvas2 = document.createElement('canvas');
+        document.getElementById('targetCode1').appendChild(canvas1);
+        document.getElementById('targetCode2').appendChild(canvas2);
 
-        JsBarcode(img1, keys[0], { format: "CODE128", width: 1.5, height: 45, fontSize: 11, displayValue: true, margin: 2 });
-        JsBarcode(img2, keys[1], { format: "CODE128", width: 1.5, height: 45, fontSize: 11, displayValue: true, margin: 2 });
+        JsBarcode(canvas1, keys[0], { format: "CODE128", width: 1.5, height: 45, fontSize: 11, displayValue: true, margin: 2 });
+        JsBarcode(canvas2, keys[1], { format: "CODE128", width: 1.5, height: 45, fontSize: 11, displayValue: true, margin: 2 });
     }
 }
 
@@ -245,7 +245,7 @@ function printSection(wrapperId) {
     const content = document.getElementById(wrapperId).innerHTML;
     const printWindow = window.open('', '', 'height=600,width=800');
     printWindow.document.write('<html><head><title>Print Label</title>');
-    printWindow.document.write('<style>body{font-family:Arial;padding:15px;}.printable-label{border:2px solid #000;padding:16px;width:500px;font-size:13px;}.label-top-bar{display:flex;align-items:center;border-bottom:1px solid #000;padding-bottom:8px;margin-bottom:10px;gap:12px;}.label-logo{height:40px;}.label-header-text{text-align:center;flex-grow:1;}.label-title{font-weight:bold;font-size:13.5px;margin:0;}.label-sub{font-size:8.5px;margin:0;}.label-row{display:flex;justify-content:space-between;margin-bottom:6px;}.label-key{font-weight:bold;}.code-container{text-align:center;margin-top:15px;}.code-container img{max-width:200px !important;height:auto !important;display:block;margin:0 auto;}</style>');
+    printWindow.document.write('<style>body{font-family:Arial;padding:15px;}.printable-label{border:2px solid #000;padding:16px;width:500px;font-size:13px;}.label-top-bar{display:flex;align-items:center;border-bottom:1px solid #000;padding-bottom:8px;margin-bottom:10px;gap:12px;}.label-logo{height:40px;}.label-header-text{text-align:center;flex-grow:1;}.label-title{font-weight:bold;font-size:13.5px;margin:0;}.label-sub{font-size:8.5px;margin:0;}.label-row{display:flex;justify-content:space-between;margin-bottom:6px;}.label-key{font-weight:bold;}.code-container{text-align:center;margin-top:15px;}</style>');
     printWindow.document.write('</head><body>');
     printWindow.document.write(content);
     printWindow.document.write('</body></html>');
