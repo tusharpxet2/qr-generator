@@ -29,7 +29,7 @@
         .label-header { font-weight: bold; font-size: 14px; text-align: center; text-transform: uppercase; border-bottom: 1px solid #000; padding-bottom: 4px; margin-bottom: 6px; }
         .label-row { display: flex; justify-content: space-between; margin-bottom: 4px; }
         .label-key { font-weight: bold; }
-        .code-container { text-align: center; margin-top: 8px; display: flex; justify-content: center; }
+        .code-container { text-align: center; margin-top: 8px; display: flex; justify-content: center; overflow: hidden; }
 
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); justify-content: center; align-items: center; z-index: 1000; }
         .modal-content { background: white; padding: 20px; border-radius: 8px; width: 90%; max-width: 500px; text-align: center; }
@@ -54,8 +54,8 @@
         <div>
             <label>Select Format Type</label>
             <select id="printFormat" onchange="refreshCurrentCodes()">
-                <option value="1">1) Full Label + Code Details</option>
-                <option value="2">2) Code Only</option>
+                <option value="1">Full Label + Code Details</option>
+                <option value="2">Code Only</option>
             </select>
         </div>
         <div>
@@ -73,15 +73,15 @@
 
     <div class="output-grid">
         <div class="card">
-            <div class="card-title">Requirement 1a Output (Direct Link Payload)</div>
+            <div class="card-title">Output (Direct Link Payload)</div>
             <div id="wrapper1a"></div>
-            <button onclick="window.print()" style="margin-top: 10px; width: auto; padding: 5px 15px;">Print 1a</button>
+            <button onclick="window.print()" style="margin-top: 10px; width: auto; padding: 5px 15px;">Print Label</button>
         </div>
 
         <div class="card">
-            <div class="card-title">Requirement 2a Output (Micro Data + Link Payload)</div>
+            <div class="card-title">Output (Micro Data + Link Payload)</div>
             <div id="wrapper2a"></div>
-            <button onclick="window.print()" style="margin-top: 10px; width: auto; padding: 5px 15px;">Print 2a</button>
+            <button onclick="window.print()" style="margin-top: 10px; width: auto; padding: 5px 15px;">Print Label</button>
         </div>
     </div>
 </div>
@@ -139,6 +139,7 @@ const productDetails = {
 const targetURL = window.location.href.split('?')[0] + "?verify=true&batch=" + encodeURIComponent(productDetails.batchNo);
 const payload1a = targetURL;
 const payload2a = `MFR: ${productDetails.manufacturer}\nBATCH: ${productDetails.batchNo}\nITEM: ${productDetails.productName}\nVERIFY: ${targetURL}`;
+const payload2aBarcode = `MFR: ${productDetails.manufacturer} | BATCH: ${productDetails.batchNo} | VERIFY: ${targetURL}`;
 
 let lastGeneratedType = 'qrcode';
 
@@ -179,8 +180,8 @@ function generateCodes(type) {
         document.getElementById('target1a').appendChild(canvas1);
         document.getElementById('target2a').appendChild(canvas2);
 
-        JsBarcode(canvas1, productDetails.batchNo, { format: "CODE128", width: 1.5, height: 45, fontSize: 12 });
-        JsBarcode(canvas2, productDetails.batchNo, { format: "CODE128", width: 1.5, height: 45, fontSize: 12 });
+        JsBarcode(canvas1, payload1a, { format: "CODE128", width: 1.2, height: 45, fontSize: 10, displayValue: true });
+        JsBarcode(canvas2, payload2aBarcode, { format: "CODE128", width: 1.0, height: 45, fontSize: 10, displayValue: true });
     }
 }
 
@@ -204,11 +205,11 @@ function closeScanner() {
 
 function onScanSuccess(decodedText) {
     closeScanner();
-    if (decodedText.startsWith("http")) {
-        alert("Scanned Code 1a (Direct Link Detected).\nRedirecting to Product Verification Page...");
+    if (decodedText.startsWith("http") || decodedText.includes("verify=true")) {
+        alert("Scanned Code (Direct Link / Payload Detected).\nRedirecting to Product Verification Page...");
         document.getElementById('verificationPage').style.display = 'block';
     } else {
-        const proceed = confirm("Scanned Code 2a (Micro Data Detected):\n\n" + decodedText + "\n\nClick OK to open full Product & Manufacturer Verification Page.");
+        const proceed = confirm("Scanned Code Data:\n\n" + decodedText + "\n\nClick OK to open full Product & Manufacturer Verification Page.");
         if (proceed) {
             document.getElementById('verificationPage').style.display = 'block';
         }
