@@ -145,14 +145,13 @@ let currentType = 'qrcode';
 
 function renderLabelHTML(codeElementId, showFullDetails) {
     if (!showFullDetails) {
+        // Code Only view: No logo, just clean border and code container
         return `
-            <div class="printable-label" style="text-align:center;">
-                <div style="display:flex; align-items:center; margin-bottom:8px;">
-                    <img src="images/logo.png" alt="Logo" style="height:25px; object-fit:contain;">
-                </div>
+            <div class="printable-label" style="text-align:center; padding: 20px;">
                 <div class="code-container" id="${codeElementId}"></div>
             </div>`;
     }
+    // Full Label view: Includes logo on top-left and all metadata rows
     return `
         <div class="printable-label">
             <div class="label-top-bar">
