@@ -252,27 +252,29 @@ function printSection(wrapperId) {
     setTimeout(() => { printWindow.print(); printWindow.close(); }, 500);
 }
 
-let html5QrcodeScanner;
+let html5QrcodeScanner = null;
+
 function openScanner() {
     document.getElementById('scannerModal').style.display = 'flex';
     
-    // Explicitly configure supported formats to support CODE_128 barcodes alongside QR codes
-    const config = { 
+    if (html5QrcodeScanner) {
+        html5QrcodeScanner.clear().catch(err => console.error(err));
+    }
+
+    html5QrcodeScanner = new Html5QrcodeScanner("reader", { 
         fps: 10, 
-        qrbox: 250,
-        formatsToSupport: [ 
-            Html5QrcodeSupportedFormats.QR_CODE, 
-            Html5QrcodeSupportedFormats.CODE_128 
-        ]
-    };
+        qrbox: { width: 250, height: 250 } 
+    }, false);
     
-    html5QrcodeScanner = new Html5QrcodeScanner("reader", config, false);
-    html5QrcodeScanner.render(onScanSuccess);
+    html5QrcodeScanner.render(onScanSuccess, (error) => {
+        // Suppress continuous scan error logs in console
+    });
 }
 
 function closeScanner() {
     if (html5QrcodeScanner) {
         html5QrcodeScanner.clear().catch(error => console.error("Failed to clear scanner", error));
+        html5QrcodeScanner = null;
     }
     document.getElementById('scannerModal').style.display = 'none';
 }
@@ -298,8 +300,8 @@ function showVerificationDetails(matchedProduct) {
 function onScanSuccess(decodedText) {
     closeScanner();
     
-    // Matches whether the barcode text or QR link contains the batch number or verification flag
-    const matchedProduct = products.find(p => decodedText.trim() === p.batchNo || decodedText.includes(p.batchNo) || decodedText.includes("verify=true"));
+    const cleanText = decodedText.trim();
+    const matchedProduct = products.find(p => cleanText === p.batchNo || cleanText.includes(p.batchNo) || cleanText.includes("verify=true"));
     
     if (matchedProduct) {
         showVerificationDetails(matchedProduct);
