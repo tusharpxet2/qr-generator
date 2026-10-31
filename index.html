@@ -26,18 +26,18 @@
         .card-title { font-size: 15px; font-weight: bold; color: #333; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px; }
 
         /* Label Design with Logo on Top-Left */
-        .printable-label { border: 2px solid #000; padding: 12px; text-align: left; font-family: Arial, sans-serif; font-size: 12px; background: #fff; display: inline-block; width: 100%; box-sizing: border-box; }
-        .label-top-bar { display: flex; align-items: center; border-bottom: 1px solid #000; padding-bottom: 6px; margin-bottom: 8px; gap: 10px; }
-        .label-logo { height: 32px; width: auto; object-fit: contain; }
+        .printable-label { border: 2px solid #000; padding: 10px; text-align: left; font-family: Arial, sans-serif; font-size: 10.5px; background: #fff; display: inline-block; width: 100%; box-sizing: border-box; }
+        .label-top-bar { display: flex; align-items: center; border-bottom: 1px solid #000; padding-bottom: 5px; margin-bottom: 6px; gap: 10px; }
+        .label-logo { height: 30px; width: auto; object-fit: contain; }
         .label-header-text { flex-grow: 1; text-align: center; }
         .label-title { font-weight: bold; font-size: 11px; text-transform: uppercase; margin: 0; }
-        .label-sub { font-size: 7.5px; margin: 0; color: #333; }
+        .label-sub { font-size: 7px; margin: 0; color: #333; }
         
-        .label-row { display: flex; justify-content: space-between; margin-bottom: 4px; }
+        .label-row { display: flex; justify-content: space-between; margin-bottom: 2.5px; }
         .label-key { font-weight: bold; }
-        .code-container { text-align: center; margin-top: 10px; display: flex; justify-content: center; }
+        .code-container { text-align: center; margin-top: 6px; display: flex; justify-content: center; }
         
-        .code-container canvas, .code-container img { max-width: 140px !important; height: auto !important; }
+        .code-container canvas, .code-container img { max-width: 130px !important; height: auto !important; }
 
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); justify-content: center; align-items: center; z-index: 1000; }
         .modal-content { background: white; padding: 20px; border-radius: 8px; width: 90%; max-width: 500px; text-align: center; }
@@ -82,7 +82,7 @@
     <div class="output-grid">
         <!-- Product 1 Card -->
         <div class="card">
-            <div class="card-title" id="title1">Product 1: 200 ML Round PET Bottle</div>
+            <div class="card-title">Product 1: 200 ML Round PET Bottle</div>
             <div id="wrapper1"></div>
             <br>
             <button onclick="printSection('wrapper1')" style="margin-top: 15px; width: auto; padding: 8px 20px;">Print Label 1</button>
@@ -90,7 +90,7 @@
 
         <!-- Product 2 Card -->
         <div class="card">
-            <div class="card-title" id="title2">Product 2: 20 ML Joy PP Bottle</div>
+            <div class="card-title">Product 2: 20 ML Joy PP Bottle</div>
             <div id="wrapper2"></div>
             <br>
             <button onclick="printSection('wrapper2')" style="margin-top: 15px; width: auto; padding: 8px 20px;">Print Label 2</button>
@@ -122,26 +122,31 @@ const products = [
     {
         manufacturer: "SCORPION CONTAINERS (P) LTD",
         address: "Khasra No -1570/3, VPO-Thana, Tehsil-Nalagarh, Distt-Solan (H.P.)",
+        srNo: "02",
         productName: "200 ML X 28MM ROUND PET BOTTLE",
         colour: "AMBER",
         shift: "A",
         date: "26-10-2026",
         batchNo: "SCPBD/04526-10",
         packing: "36 x 8 = 288 NOS",
-        extraKey1: "Packer Name", extraVal1: "PRADEEP",
-        extraKey2: "Part Code", extraVal2: "FG001690"
+        packerName: "PRADEEP",
+        shiftIncharge: "VINOD KUMAR",
+        qaIncharge: "JITENDRA",
+        customerCode: "1049847",
+        partCode: "FG001690"
     },
     {
         manufacturer: "SCORPION CONTAINERS (P) LTD",
-        address: "Khasra No -1570/3, VPO-Thana, Tehsil-Nalagarh, Distt-Solan (H.P.)",
+        address: "",
         productName: "20 ML JOY PP BOTTLE",
         colour: "IVORY",
+        qty: "1000 NOS",
         shift: "B",
         date: "28-10-2026",
         batchNo: "SCPPB/01326-03",
-        packing: "1000 NOS",
-        extraKey1: "QC Inch", extraVal1: "SUDHEER",
-        extraKey2: "Packer", extraVal2: "DHANI RAM"
+        shiftInc: "VIJAY KUMAR",
+        qcInch: "SUDHEER",
+        packer: "DHANI RAM"
     }
 ];
 
@@ -151,32 +156,63 @@ function getTargetURL(batchNo) {
     return window.location.href.split('?')[0] + "?verify=true&batch=" + encodeURIComponent(batchNo);
 }
 
-function renderLabelHTML(prod, codeElementId, showFullDetails) {
+function renderLabelHTML(prod, index, codeElementId, showFullDetails) {
     if (!showFullDetails) {
         return `
             <div class="printable-label" style="text-align:center; padding: 25px;">
                 <div class="code-container" id="${codeElementId}"></div>
             </div>`;
     }
-    return `
-        <div class="printable-label">
-            <div class="label-top-bar">
-                <img src="images/logo.png" alt="Logo" class="label-logo">
-                <div class="label-header-text">
-                    <p class="label-title">${prod.manufacturer}</p>
-                    <p class="label-sub">${prod.address}</p>
+
+    if (index === 0) {
+        // Exact 11+ rows from Image 1
+        return `
+            <div class="printable-label">
+                <div class="label-top-bar">
+                    <img src="images/logo.png" alt="Logo" class="label-logo">
+                    <div class="label-header-text">
+                        <p class="label-title">${prod.manufacturer}</p>
+                        <p class="label-sub">${prod.address}</p>
+                    </div>
                 </div>
+                <div style="text-align: right; font-size: 9px; margin-bottom: 4px; font-weight: bold;">Sr.No - ${prod.srNo}</div>
+                <div class="label-row"><span class="label-key">Product Name :</span> <span>${prod.productName}</span></div>
+                <div class="label-row"><span class="label-key">Colour :</span> <span>${prod.colour}</span></div>
+                <div class="label-row"><span class="label-key">Shift :</span> <span>${prod.shift}</span></div>
+                <div class="label-row"><span class="label-key">Date :</span> <span>${prod.date}</span></div>
+                <div class="label-row"><span class="label-key">Batch No :</span> <span>${prod.batchNo}</span></div>
+                <div class="label-row"><span class="label-key">Packing :</span> <span>${prod.packing}</span></div>
+                <div class="label-row"><span class="label-key">Packer's Name :</span> <span>${prod.packerName}</span></div>
+                <div class="label-row"><span class="label-key">Shift Incharge :</span> <span>${prod.shiftIncharge}</span></div>
+                <div class="label-row"><span class="label-key">QA Incharge :</span> <span>${prod.qaIncharge}</span></div>
+                <div class="label-row"><span class="label-key">CUSTOMER CODE :</span> <span>${prod.customerCode}</span></div>
+                <div class="label-row"><span class="label-key">PART CODE :</span> <span>${prod.partCode}</span></div>
+                <div class="code-container" id="${codeElementId}"></div>
             </div>
-            <div class="label-row"><span class="label-key">Product:</span> <span>${prod.productName}</span></div>
-            <div class="label-row"><span class="label-key">Colour:</span> <span>${prod.colour}</span></div>
-            <div class="label-row"><span class="label-key">Shift / Date:</span> <span>${prod.shift} / ${prod.date}</span></div>
-            <div class="label-row"><span class="label-key">Batch No:</span> <span>${prod.batchNo}</span></div>
-            <div class="label-row"><span class="label-key">Packing:</span> <span>${prod.packing}</span></div>
-            <div class="label-row"><span class="label-key">${prod.extraKey1}:</span> <span>${prod.extraVal1}</span></div>
-            <div class="label-row"><span class="label-key">${prod.extraKey2}:</span> <span>${prod.extraVal2}</span></div>
-            <div class="code-container" id="${codeElementId}"></div>
-        </div>
-    `;
+        `;
+    } else {
+        // Exact all rows from Image 2
+        return `
+            <div class="printable-label">
+                <div class="label-top-bar">
+                    <img src="images/logo.png" alt="Logo" class="label-logo">
+                    <div class="label-header-text">
+                        <p class="label-title">${prod.manufacturer}</p>
+                    </div>
+                </div>
+                <div class="label-row"><span class="label-key">PRODUCT :</span> <span>${prod.productName}</span></div>
+                <div class="label-row"><span class="label-key">COLOUR :</span> <span>${prod.colour}</span></div>
+                <div class="label-row"><span class="label-key">QTY :</span> <span>${prod.qty}</span></div>
+                <div class="label-row"><span class="label-key">SHIFT :</span> <span>${prod.shift}</span></div>
+                <div class="label-row"><span class="label-key">DATE :</span> <span>${prod.date}</span></div>
+                <div class="label-row"><span class="label-key">BATCH NO :</span> <span>${prod.batchNo}</span></div>
+                <div class="label-row"><span class="label-key">SHIFT INC :</span> <span>${prod.shiftInc}</span></div>
+                <div class="label-row"><span class="label-key">QC INCH :</span> <span>${prod.qcInch}</span></div>
+                <div class="label-row"><span class="label-key">PACKER :</span> <span>${prod.packer}</span></div>
+                <div class="code-container" id="${codeElementId}"></div>
+            </div>
+        `;
+    }
 }
 
 function generateAllCodes(type) {
@@ -184,20 +220,20 @@ function generateAllCodes(type) {
     const formatOption = document.getElementById('printFormat').value;
     const isFullFormat = (formatOption === "1");
     
-    document.getElementById('wrapper1').innerHTML = renderLabelHTML(products[0], 'targetCode1', isFullFormat);
-    document.getElementById('wrapper2').innerHTML = renderLabelHTML(products[1], 'targetCode2', isFullFormat);
+    document.getElementById('wrapper1').innerHTML = renderLabelHTML(products[0], 0, 'targetCode1', isFullFormat);
+    document.getElementById('wrapper2').innerHTML = renderLabelHTML(products[1], 1, 'targetCode2', isFullFormat);
 
     if (type === 'qrcode') {
-        new QRCode(document.getElementById('targetCode1'), { text: getTargetURL(products[0].batchNo), width: 90, height: 90 });
-        new QRCode(document.getElementById('targetCode2'), { text: getTargetURL(products[1].batchNo), width: 90, height: 90 });
+        new QRCode(document.getElementById('targetCode1'), { text: getTargetURL(products[0].batchNo), width: 85, height: 85 });
+        new QRCode(document.getElementById('targetCode2'), { text: getTargetURL(products[1].batchNo), width: 85, height: 85 });
     } else {
         const canvas1 = document.createElement('canvas');
         const canvas2 = document.createElement('canvas');
         document.getElementById('targetCode1').appendChild(canvas1);
         document.getElementById('targetCode2').appendChild(canvas2);
 
-        JsBarcode(canvas1, products[0].batchNo, { format: "CODE128", width: 0.7, height: 25, fontSize: 9, displayValue: true, margin: 2 });
-        JsBarcode(canvas2, products[1].batchNo, { format: "CODE128", width: 0.7, height: 25, fontSize: 9, displayValue: true, margin: 2 });
+        JsBarcode(canvas1, products[0].batchNo, { format: "CODE128", width: 0.7, height: 22, fontSize: 8.5, displayValue: true, margin: 2 });
+        JsBarcode(canvas2, products[1].batchNo, { format: "CODE128", width: 0.7, height: 22, fontSize: 8.5, displayValue: true, margin: 2 });
     }
 }
 
@@ -209,7 +245,7 @@ function printSection(wrapperId) {
     const content = document.getElementById(wrapperId).innerHTML;
     const printWindow = window.open('', '', 'height=600,width=800');
     printWindow.document.write('<html><head><title>Print Label</title>');
-    printWindow.document.write('<style>body{font-family:Arial;padding:20px;}.printable-label{border:2px solid #000;padding:12px;width:350px;font-size:12px;}.label-top-bar{display:flex;align-items:center;border-bottom:1px solid #000;padding-bottom:6px;margin-bottom:8px;gap:10px;}.label-logo{height:32px;}.label-header-text{text-align:center;flex-grow:1;}.label-title{font-weight:bold;font-size:11px;margin:0;}.label-sub{font-size:7.5px;margin:0;}.label-row{display:flex;justify-content:space-between;margin-bottom:4px;}.label-key{font-weight:bold;}.code-container{text-align:center;margin-top:10px;}</style>');
+    printWindow.document.write('<style>body{font-family:Arial;padding:20px;}.printable-label{border:2px solid #000;padding:10px;width:350px;font-size:10.5px;}.label-top-bar{display:flex;align-items:center;border-bottom:1px solid #000;padding-bottom:5px;margin-bottom:6px;gap:10px;}.label-logo{height:30px;}.label-header-text{text-align:center;flex-grow:1;}.label-title{font-weight:bold;font-size:11px;margin:0;}.label-sub{font-size:7px;margin:0;}.label-row{display:flex;justify-content:space-between;margin-bottom:2.5px;}.label-key{font-weight:bold;}.code-container{text-align:center;margin-top:6px;}</style>');
     printWindow.document.write('</head><body>');
     printWindow.document.write(content);
     printWindow.document.write('</body></html>');
@@ -243,7 +279,6 @@ function onScanSuccess(decodedText) {
             <tr><th>Colour</th><td>${matchedProduct.colour}</td></tr>
             <tr><th>Shift / Date</th><td>${matchedProduct.shift} / ${matchedProduct.date}</td></tr>
             <tr><th>Batch No</th><td>${matchedProduct.batchNo}</td></tr>
-            <tr><th>Packing</th><td>${matchedProduct.packing}</td></tr>
         </table>`;
     } else {
         html += `<p>Scanned Raw Code: <strong>${decodedText}</strong></p>`;
@@ -263,7 +298,6 @@ if (window.location.search.includes('verify=true')) {
             <tr><th>Colour</th><td>${matchedProduct.colour}</td></tr>
             <tr><th>Shift / Date</th><td>${matchedProduct.shift} / ${matchedProduct.date}</td></tr>
             <tr><th>Batch No</th><td>${matchedProduct.batchNo}</td></tr>
-            <tr><th>Packing</th><td>${matchedProduct.packing}</td></tr>
         </table>`;
     document.getElementById('verificationDetails').innerHTML = html;
     document.getElementById('verificationPage').style.display = 'block';
