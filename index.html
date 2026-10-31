@@ -219,45 +219,21 @@ function generateAllCodes(type) {
     const formatOption = document.getElementById('printFormat').value;
     const isFullFormat = (formatOption === "1");
     
-    const keys = Object.keys(productDatabase);
-    document.getElementById('wrapper1').innerHTML = renderLabelHTML(productDatabase[keys[0]], keys[0], 'targetCode1', isFullFormat);
-    document.getElementById('wrapper2').innerHTML = renderLabelHTML(productDatabase[keys[1]], keys[1], 'targetCode2', isFullFormat);
+    document.getElementById('wrapper1').innerHTML = renderLabelHTML(products[0], keys[0], 'targetCode1', isFullFormat);
+    document.getElementById('wrapper2').innerHTML = renderLabelHTML(products[1], keys[1], 'targetCode2', isFullFormat);
 
     if (type === 'qrcode') {
         new QRCode(document.getElementById('targetCode1'), { text: getTargetURL(keys[0]), width: 150, height: 150 });
         new QRCode(document.getElementById('targetCode2'), { text: getTargetURL(keys[1]), width: 150, height: 150 });
     } else {
-        // Create temporary SVG elements for JsBarcode, then convert them to printable <img> data URIs
-        const svg1 = document.createElement('svg');
-        const svg2 = document.createElement('svg');
-        
-        document.getElementById('targetCode1').appendChild(svg1);
-        document.getElementById('targetCode2').appendChild(svg2);
+        // Using <img> element generation for JsBarcode ensures 100% reliable printing
+        const img1 = document.createElement('img');
+        const img2 = document.createElement('img');
+        document.getElementById('targetCode1').appendChild(img1);
+        document.getElementById('targetCode2').appendChild(img2);
 
-        JsBarcode(svg1, keys[0], { format: "CODE128", width: 1.5, height: 45, fontSize: 11, displayValue: true, margin: 2 });
-        JsBarcode(svg2, keys[1], { format: "CODE128", width: 1.5, height: 45, fontSize: 11, displayValue: true, margin: 2 });
-
-        // Convert SVGs to images so they render and print reliably across all browsers
-        setTimeout(() => {
-            ['targetCode1', 'targetCode2'].forEach((id, idx) => {
-                const container = document.getElementById(id);
-                const svg = container.querySelector('svg');
-                if (svg) {
-                    const svgData = new XMLSerializer().serializeToString(svg);
-                    const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
-                    const URL = window.URL || window.webkitURL || window;
-                    const blobURL = URL.createObjectURL(svgBlob);
-                    
-                    const img = document.createElement('img');
-                    img.src = blobURL;
-                    img.style.maxWidth = "200px";
-                    img.style.height = "auto";
-                    
-                    container.innerHTML = '';
-                    container.appendChild(img);
-                }
-            });
-        }, 50);
+        JsBarcode(img1, keys[0], { format: "CODE128", width: 1.5, height: 45, fontSize: 11, displayValue: true, margin: 2 });
+        JsBarcode(img2, keys[1], { format: "CODE128", width: 1.5, height: 45, fontSize: 11, displayValue: true, margin: 2 });
     }
 }
 
