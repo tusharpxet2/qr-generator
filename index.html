@@ -118,9 +118,8 @@
 </div>
 
 <script>
-// JSON Database mapping batch codes directly to full product specifications
-const productDatabase = {
-    "SCPBD/04526-10": {
+const products = [
+    {
         manufacturer: "SCORPION CONTAINERS (P) LTD",
         address: "Khasra No -1570/3, VPO-Thana, Tehsil-Nalagarh, Distt-Solan (H.P.)",
         srNo: "02",
@@ -136,7 +135,7 @@ const productDatabase = {
         customerCode: "1049847",
         partCode: "FG001690"
     },
-    "SCPPB/01326-03": {
+    {
         manufacturer: "SCORPION CONTAINERS (P) LTD",
         address: "",
         productName: "20 ML JOY PP BOTTLE",
@@ -149,7 +148,7 @@ const productDatabase = {
         qcInch: "SUDHEER",
         packer: "DHANI RAM"
     }
-};
+];
 
 let lastType = 'qrcode';
 
@@ -157,7 +156,7 @@ function getTargetURL(batchNo) {
     return window.location.href.split('?')[0] + "?verify=true&batch=" + encodeURIComponent(batchNo);
 }
 
-function renderLabelHTML(prod, batchKey, codeElementId, showFullDetails) {
+function renderLabelHTML(prod, index, codeElementId, showFullDetails) {
     if (!showFullDetails) {
         return `
             <div class="printable-label" style="text-align:center; padding: 30px;">
@@ -165,7 +164,7 @@ function renderLabelHTML(prod, batchKey, codeElementId, showFullDetails) {
             </div>`;
     }
 
-    if (batchKey === "SCPBD/04526-10") {
+    if (index === 0) {
         return `
             <div class="printable-label">
                 <div class="label-top-bar">
@@ -219,21 +218,20 @@ function generateAllCodes(type) {
     const formatOption = document.getElementById('printFormat').value;
     const isFullFormat = (formatOption === "1");
     
-    const keys = Object.keys(productDatabase);
-    document.getElementById('wrapper1').innerHTML = renderLabelHTML(productDatabase[keys[0]], keys[0], 'targetCode1', isFullFormat);
-    document.getElementById('wrapper2').innerHTML = renderLabelHTML(productDatabase[keys[1]], keys[1], 'targetCode2', isFullFormat);
+    document.getElementById('wrapper1').innerHTML = renderLabelHTML(products[0], 0, 'targetCode1', isFullFormat);
+    document.getElementById('wrapper2').innerHTML = renderLabelHTML(products[1], 1, 'targetCode2', isFullFormat);
 
     if (type === 'qrcode') {
-        new QRCode(document.getElementById('targetCode1'), { text: getTargetURL(keys[0]), width: 150, height: 150 });
-        new QRCode(document.getElementById('targetCode2'), { text: getTargetURL(keys[1]), width: 150, height: 150 });
+        new QRCode(document.getElementById('targetCode1'), { text: getTargetURL(products[0].batchNo), width: 150, height: 150 });
+        new QRCode(document.getElementById('targetCode2'), { text: getTargetURL(products[1].batchNo), width: 150, height: 150 });
     } else {
         const canvas1 = document.createElement('canvas');
         const canvas2 = document.createElement('canvas');
         document.getElementById('targetCode1').appendChild(canvas1);
         document.getElementById('targetCode2').appendChild(canvas2);
 
-        JsBarcode(canvas1, keys[0], { format: "CODE128", width: 1.5, height: 45, fontSize: 11, displayValue: true, margin: 2 });
-        JsBarcode(canvas2, keys[1], { format: "CODE128", width: 1.5, height: 45, fontSize: 11, displayValue: true, margin: 2 });
+        JsBarcode(canvas1, products[0].batchNo, { format: "CODE128", width: 1.5, height: 45, fontSize: 11, displayValue: true, margin: 2 });
+        JsBarcode(canvas2, products[1].batchNo, { format: "CODE128", width: 1.5, height: 45, fontSize: 11, displayValue: true, margin: 2 });
     }
 }
 
@@ -299,24 +297,10 @@ function showVerificationDetails(matchedProduct) {
 
 function onScanSuccess(decodedText) {
     closeScanner();
+    
     const cleanText = decodedText.trim();
-    
-    let targetBatch = cleanText;
-    if (cleanText.includes("batch=")) {
-        try {
-            const urlParams = new URLSearchParams(cleanText.split('?')[1]);
-            targetBatch = urlParams.get('batch');
-        } catch(e) {}
-    }
-
-    // Direct JSON map lookup
-    let matchedProduct = productDatabase[targetBatch];
-    
-    // Fallback search if needed
-    if (!matchedProduct) {
-        const foundKey = Object.keys(productDatabase).find(key => cleanText.includes(key) || key.includes(cleanText));
-        if (foundKey) matchedProduct = productDatabase[foundKey];
-    }
+    // Directly match scanned barcode string or QR link against batch numbers
+    const matchedProduct = products.find(p => cleanText === p.batchNo || cleanText.includes(p.batchNo));
     
     if (matchedProduct) {
         showVerificationDetails(matchedProduct);
@@ -329,10 +313,8 @@ function onScanSuccess(decodedText) {
 if (window.location.search.includes('verify=true')) {
     const urlParams = new URLSearchParams(window.location.search);
     const batch = urlParams.get('batch');
-    const matchedProduct = productDatabase[batch];
-    if (matchedProduct) {
-        showVerificationDetails(matchedProduct);
-    }
+    const matchedProduct = products.find(p => p.batchNo === batch) || products[0];
+    showVerificationDetails(matchedProduct);
 }
 
 window.onload = () => generateAllCodes('qrcode');
