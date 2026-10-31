@@ -165,7 +165,6 @@ function renderLabelHTML(prod, index, codeElementId, showFullDetails) {
     }
 
     if (index === 0) {
-        // Exact 11+ rows from Image 1
         return `
             <div class="printable-label">
                 <div class="label-top-bar">
@@ -191,7 +190,6 @@ function renderLabelHTML(prod, index, codeElementId, showFullDetails) {
             </div>
         `;
     } else {
-        // Exact all rows from Image 2
         return `
             <div class="printable-label">
                 <div class="label-top-bar">
@@ -268,39 +266,40 @@ function closeScanner() {
     document.getElementById('scannerModal').style.display = 'none';
 }
 
+function showVerificationDetails(matchedProduct) {
+    let html = `<h3 style="margin-bottom:5px;">${matchedProduct.manufacturer}</h3>`;
+    if (matchedProduct.address) {
+        html += `<p style="font-size:11px; margin-top:0;">${matchedProduct.address}</p>`;
+    }
+    html += `<table style="width: 100%; border-collapse: collapse; text-align: left; margin-top: 15px; font-size:13px;" border="1" cellpadding="6">`;
+    
+    for (let key in matchedProduct) {
+        if (key !== 'manufacturer' && key !== 'address') {
+            let formattedKey = key.replace(/([A-Z])/g, ' $1').toUpperCase();
+            html += `<tr><th>${formattedKey}</th><td>${matchedProduct[key]}</td></tr>`;
+        }
+    }
+    html += `</table>`;
+    document.getElementById('verificationDetails').innerHTML = html;
+    document.getElementById('verificationPage').style.display = 'block';
+}
+
 function onScanSuccess(decodedText) {
     closeScanner();
     const matchedProduct = products.find(p => decodedText.includes(p.batchNo) || decodedText.includes("verify=true"));
-    
-    let html = `<h3>SCORPION CONTAINERS (P) LTD</h3>`;
     if (matchedProduct) {
-        html += `<table style="width: 100%; border-collapse: collapse; text-align: left; margin-top: 15px;" border="1" cellpadding="8">
-            <tr><th>Product</th><td>${matchedProduct.productName}</td></tr>
-            <tr><th>Colour</th><td>${matchedProduct.colour}</td></tr>
-            <tr><th>Shift / Date</th><td>${matchedProduct.shift} / ${matchedProduct.date}</td></tr>
-            <tr><th>Batch No</th><td>${matchedProduct.batchNo}</td></tr>
-        </table>`;
+        showVerificationDetails(matchedProduct);
     } else {
-        html += `<p>Scanned Raw Code: <strong>${decodedText}</strong></p>`;
+        document.getElementById('verificationDetails').innerHTML = `<p>Scanned Raw Code: <strong>${decodedText}</strong></p>`;
+        document.getElementById('verificationPage').style.display = 'block';
     }
-    document.getElementById('verificationDetails').innerHTML = html;
-    document.getElementById('verificationPage').style.display = 'block';
 }
 
 if (window.location.search.includes('verify=true')) {
     const urlParams = new URLSearchParams(window.location.search);
     const batch = urlParams.get('batch');
     const matchedProduct = products.find(p => p.batchNo === batch) || products[0];
-    
-    let html = `<h3>SCORPION CONTAINERS (P) LTD</h3>
-        <table style="width: 100%; border-collapse: collapse; text-align: left; margin-top: 15px;" border="1" cellpadding="8">
-            <tr><th>Product</th><td>${matchedProduct.productName}</td></tr>
-            <tr><th>Colour</th><td>${matchedProduct.colour}</td></tr>
-            <tr><th>Shift / Date</th><td>${matchedProduct.shift} / ${matchedProduct.date}</td></tr>
-            <tr><th>Batch No</th><td>${matchedProduct.batchNo}</td></tr>
-        </table>`;
-    document.getElementById('verificationDetails').innerHTML = html;
-    document.getElementById('verificationPage').style.display = 'block';
+    showVerificationDetails(matchedProduct);
 }
 
 window.onload = () => generateAllCodes('qrcode');
