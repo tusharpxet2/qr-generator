@@ -299,22 +299,8 @@ function onScanSuccess(decodedText) {
     closeScanner();
     
     const cleanText = decodedText.trim();
-    
-    // Extract batch from URL if scanned from a QR code link, or use direct text if scanned from a 1D barcode
-    let targetBatch = cleanText;
-    if (cleanText.includes("batch=")) {
-        try {
-            const urlParams = new URLSearchParams(cleanText.split('?')[1]);
-            targetBatch = urlParams.get('batch');
-        } catch(e) {}
-    }
-
-    // Find the matching product by exact batch number or partial match
-    const matchedProduct = products.find(p => 
-        p.batchNo === targetBatch || 
-        cleanText.includes(p.batchNo) || 
-        p.batchNo.includes(cleanText)
-    );
+    // Directly match scanned barcode string or QR link against batch numbers
+    const matchedProduct = products.find(p => cleanText === p.batchNo || cleanText.includes(p.batchNo));
     
     if (matchedProduct) {
         showVerificationDetails(matchedProduct);
