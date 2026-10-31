@@ -178,7 +178,7 @@ function generateCode(type) {
     const formatOption = document.getElementById('printFormat').value;
     const isFullFormat = (formatOption === "1");
     
-    document.getElementById('cardTitle').innerText = type === 'qrcode' ? 'QR Code Output' : 'Short Barcode Output';
+    document.getElementById('cardTitle').innerText = type === 'qrcode' ? 'QR Code Output' : 'Barcode Output';
     document.getElementById('wrapperTarget').innerHTML = renderLabelHTML('targetCode', isFullFormat);
 
     if (type === 'qrcode') {
