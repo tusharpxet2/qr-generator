@@ -29,8 +29,10 @@
         .label-header { font-weight: bold; font-size: 14px; text-align: center; text-transform: uppercase; border-bottom: 1px solid #000; padding-bottom: 4px; margin-bottom: 6px; }
         .label-row { display: flex; justify-content: space-between; margin-bottom: 4px; }
         .label-key { font-weight: bold; }
-        .code-container { text-align: center; margin-top: 10px; display: flex; justify-content: center; overflow: hidden; }
-        .code-container canvas, .code-container svg { max-width: 100%; height: auto; }
+        .code-container { text-align: center; margin-top: 10px; display: flex; justify-content: center; }
+        
+        /* Enforce strict small sizing for generated codes */
+        .code-container canvas, .code-container img { max-width: 140px !important; height: auto !important; }
 
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); justify-content: center; align-items: center; z-index: 1000; }
         .modal-content { background: white; padding: 20px; border-radius: 8px; width: 90%; max-width: 500px; text-align: center; }
@@ -164,12 +166,12 @@ function generateCode(type) {
     document.getElementById('wrapperTarget').innerHTML = renderLabelHTML('targetCode', isFullFormat);
 
     if (type === 'qrcode') {
-        new QRCode(document.getElementById('targetCode'), { text: targetURL, width: 110, height: 110 });
+        new QRCode(document.getElementById('targetCode'), { text: targetURL, width: 90, height: 90 });
     } else {
         const canvas = document.createElement('canvas');
         document.getElementById('targetCode').appendChild(canvas);
-        // Short & highly scannable barcode encoding the batch number
-        JsBarcode(canvas, productDetails.batchNo, { format: "CODE128", width: 1.2, height: 35, fontSize: 10, displayValue: true, margin: 5 });
+        // Heavily compacted barcode: width 0.7, height 25
+        JsBarcode(canvas, productDetails.batchNo, { format: "CODE128", width: 0.7, height: 25, fontSize: 9, displayValue: true, margin: 2 });
     }
 }
 
@@ -193,7 +195,6 @@ function closeScanner() {
 
 function onScanSuccess(decodedText) {
     closeScanner();
-    // Validates whether the scanned code matches the product batch or verification link
     if (decodedText.includes(productDetails.batchNo) || decodedText.includes("verify=true") || decodedText.startsWith("http")) {
         document.getElementById('verificationPage').style.display = 'block';
     } else {
