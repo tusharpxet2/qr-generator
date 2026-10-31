@@ -138,7 +138,8 @@ const productDetails = {
 
 const targetURL = window.location.href.split('?')[0] + "?verify=true&batch=" + encodeURIComponent(productDetails.batchNo);
 const payload1a = targetURL;
-const payload2a = `MFR: ${productDetails.manufacturer}\nBATCH: ${productDetails.batchNo}\nITEM: ${productDetails.productName}\nVERIFY: ${targetURL}`;
+// Optimized payload: puts the URL first so native phone cameras recognize it as a link immediately, followed by query params for micro-data
+const payload2a = `${targetURL}&mfr=${encodeURIComponent(productDetails.manufacturer)}&batch=${encodeURIComponent(productDetails.batchNo)}&item=${encodeURIComponent(productDetails.productName)}`;
 const payload2aBarcode = `MFR: ${productDetails.manufacturer} | BATCH: ${productDetails.batchNo} | VERIFY: ${targetURL}`;
 
 let lastGeneratedType = 'qrcode';
@@ -205,15 +206,7 @@ function closeScanner() {
 
 function onScanSuccess(decodedText) {
     closeScanner();
-    if (decodedText.startsWith("http") || decodedText.includes("verify=true")) {
-        alert("Scanned Code (Direct Link / Payload Detected).\nRedirecting to Product Verification Page...");
-        document.getElementById('verificationPage').style.display = 'block';
-    } else {
-        const proceed = confirm("Scanned Code Data:\n\n" + decodedText + "\n\nClick OK to open full Product & Manufacturer Verification Page.");
-        if (proceed) {
-            document.getElementById('verificationPage').style.display = 'block';
-        }
-    }
+    document.getElementById('verificationPage').style.display = 'block';
 }
 
 if (window.location.search.includes('verify=true')) {
