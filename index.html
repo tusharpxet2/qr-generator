@@ -20,34 +20,33 @@
         select, button { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
         button { background: var(--brand-red); color: white; border: none; cursor: pointer; font-weight: bold; transition: 0.2s; }
         button:hover { opacity: 0.9; }
-        
+
         .output-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(520px, 1fr)); gap: 20px; margin-top: 20px; }
         .card { border: 1px solid #ddd; border-radius: 6px; padding: 20px; text-align: center; background: #fff; box-sizing: border-box; }
         .card-title { font-size: 15px; font-weight: bold; color: #333; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px; }
 
-        /* Large, Highly Scannable Label Design (Width: 500px) */
-        .printable-label { border: 2px solid #000; padding: 16px; text-align: left; font-family: Arial, sans-serif; font-size: 13px; background: #fff; display: inline-block; width: 100%; max-width: 500px; box-sizing: border-box; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); justify-content: center; align-items: center; z-index: 1000; }
+        .modal-content { background: white; padding: 20px; border-radius: 8px; width: 90%; max-width: 500px; text-align: center; }
+        #reader { width: 100%; }
+    </style>
+
+    <!-- LABEL STYLES: used on screen AND copied into the print window, so both look the same -->
+    <style id="labelStyles">
+        .printable-label { border: 2px solid #000; padding: 16px; text-align: left; font-family: Arial, sans-serif; font-size: 13px; background: #fff; display: inline-block; width: 500px; max-width: 100%; box-sizing: border-box; }
         .label-top-bar { display: flex; align-items: center; border-bottom: 1px solid #000; padding-bottom: 8px; margin-bottom: 10px; gap: 12px; }
         .label-logo { height: 40px; width: auto; object-fit: contain; }
         .label-header-text { flex-grow: 1; text-align: center; }
         .label-title { font-weight: bold; font-size: 13.5px; text-transform: uppercase; margin: 0; }
         .label-sub { font-size: 8.5px; margin: 0; color: #333; }
-        
         .label-row { display: flex; justify-content: space-between; margin-bottom: 6px; }
         .label-key { font-weight: bold; }
         .code-container { text-align: center; margin-top: 15px; display: flex; justify-content: center; }
-        
-        .code-container canvas, .code-container img { max-width: 200px !important; height: auto !important; }
-
-        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); justify-content: center; align-items: center; z-index: 1000; }
-        .modal-content { background: white; padding: 20px; border-radius: 8px; width: 90%; max-width: 500px; text-align: center; }
-        #reader { width: 100%; }
-
-        @media print {
-            body * { visibility: hidden; }
-            .printable-label, .printable-label * { visibility: visible; }
-            .printable-label { position: absolute; left: 0; top: 0; width: 500px; }
-        }
+        /* Do NOT shrink codes (shrinking makes them unscannable) - only stop them overflowing the label */
+        .code-container img { display: block; max-width: 100%; height: auto; image-rendering: pixelated; }
+        /* qrcodejs creates a hidden canvas + a visible img; keep only the img */
+        .code-container canvas { display: none !important; }
+        /* White border around the QR code (quiet zone) */
+        .code-container[data-type="qrcode"] img { padding: 10px; background: #fff; }
     </style>
 </head>
 <body>
@@ -106,7 +105,7 @@
     </div>
 </div>
 
-<div id="verificationPage" style="display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:white; overflow-y:auto; padding: 20px; z-index: 2000;">
+<div id="verificationPage" style="display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:white; overflow-y:auto; padding: 20px; z-index: 2000; box-sizing: border-box;">
     <div style="max-width: 600px; margin: 0 auto; text-align: center; border: 1px solid #ccc; padding: 20px; border-radius: 8px;">
         <img src="images/logo.png" alt="Scorpion Logo" style="max-height: 50px; margin-bottom: 10px;">
         <h2 style="color: #2e7d32;">✔ Verified Product</h2>
@@ -213,25 +212,51 @@ function renderLabelHTML(prod, index, codeElementId, showFullDetails) {
     }
 }
 
+// FIX: barcode is drawn into an <img> (not a <canvas>), so it is copied to the print page
+function makeBarcode(target, text) {
+    const img = document.createElement('img');
+    target.appendChild(img);
+    JsBarcode(img, text, {
+        format: "CODE128",
+        width: 2,          // whole-pixel bars print sharp (1.5 was blurry)
+        height: 50,
+        fontSize: 12,
+        displayValue: true,
+        margin: 10,        // white space on both sides so scanners can read it
+        background: "#ffffff",
+        lineColor: "#000000"
+    });
+}
+
+function makeQR(target, text) {
+    new QRCode(target, {
+        text: text,
+        width: 150,
+        height: 150,
+        colorDark: "#000000",
+        colorLight: "#ffffff",
+        correctLevel: QRCode.CorrectLevel.M
+    });
+}
+
 function generateAllCodes(type) {
     lastType = type;
-    const formatOption = document.getElementById('printFormat').value;
-    const isFullFormat = (formatOption === "1");
-    
+    const isFullFormat = (document.getElementById('printFormat').value === "1");
+
     document.getElementById('wrapper1').innerHTML = renderLabelHTML(products[0], 0, 'targetCode1', isFullFormat);
     document.getElementById('wrapper2').innerHTML = renderLabelHTML(products[1], 1, 'targetCode2', isFullFormat);
 
-    if (type === 'qrcode') {
-        new QRCode(document.getElementById('targetCode1'), { text: getTargetURL(products[0].batchNo), width: 150, height: 150 });
-        new QRCode(document.getElementById('targetCode2'), { text: getTargetURL(products[1].batchNo), width: 150, height: 150 });
-    } else {
-        const canvas1 = document.createElement('canvas');
-        const canvas2 = document.createElement('canvas');
-        document.getElementById('targetCode1').appendChild(canvas1);
-        document.getElementById('targetCode2').appendChild(canvas2);
+    const t1 = document.getElementById('targetCode1');
+    const t2 = document.getElementById('targetCode2');
+    t1.dataset.type = type;
+    t2.dataset.type = type;
 
-        JsBarcode(canvas1, products[0].batchNo, { format: "CODE128", width: 1.5, height: 45, fontSize: 11, displayValue: true, margin: 2 });
-        JsBarcode(canvas2, products[1].batchNo, { format: "CODE128", width: 1.5, height: 45, fontSize: 11, displayValue: true, margin: 2 });
+    if (type === 'qrcode') {
+        makeQR(t1, getTargetURL(products[0].batchNo));
+        makeQR(t2, getTargetURL(products[1].batchNo));
+    } else {
+        makeBarcode(t1, products[0].batchNo);
+        makeBarcode(t2, products[1].batchNo);
     }
 }
 
@@ -239,33 +264,55 @@ function refreshAllCodes() {
     generateAllCodes(lastType);
 }
 
+// FIX: copy the label safely, turn any canvas into an image, and wait for images before printing
 function printSection(wrapperId) {
-    const content = document.getElementById(wrapperId).innerHTML;
-    const printWindow = window.open('', '', 'height=600,width=800');
+    const original = document.getElementById(wrapperId);
+    const clone = original.cloneNode(true);
+
+    // Safety net: if any canvas exists, replace it with an image of its drawing
+    const srcCanvases = original.querySelectorAll('canvas');
+    clone.querySelectorAll('canvas').forEach((c, i) => {
+        if (getComputedStyle(srcCanvases[i]).display === 'none') { c.remove(); return; }
+        const img = document.createElement('img');
+        img.src = srcCanvases[i].toDataURL('image/png');
+        c.replaceWith(img);
+    });
+
+    // Make image paths absolute (the print window has no base folder, so "images/logo.png" would break)
+    clone.querySelectorAll('img').forEach(img => { if (img.src) img.setAttribute('src', img.src); });
+
+    const labelCSS = document.getElementById('labelStyles').innerHTML;
+    const printWindow = window.open('', '', 'height=700,width=800');
     printWindow.document.write('<html><head><title>Print Label</title>');
-    printWindow.document.write('<style>body{font-family:Arial;padding:15px;}.printable-label{border:2px solid #000;padding:16px;width:500px;font-size:13px;}.label-top-bar{display:flex;align-items:center;border-bottom:1px solid #000;padding-bottom:8px;margin-bottom:10px;gap:12px;}.label-logo{height:40px;}.label-header-text{text-align:center;flex-grow:1;}.label-title{font-weight:bold;font-size:13.5px;margin:0;}.label-sub{font-size:8.5px;margin:0;}.label-row{display:flex;justify-content:space-between;margin-bottom:6px;}.label-key{font-weight:bold;}.code-container{text-align:center;margin-top:15px;}</style>');
+    printWindow.document.write('<style>body{font-family:Arial;padding:15px;margin:0;} @page{margin:5mm;}' + labelCSS + '</style>');
     printWindow.document.write('</head><body>');
-    printWindow.document.write(content);
+    printWindow.document.write(clone.innerHTML);
     printWindow.document.write('</body></html>');
     printWindow.document.close();
     printWindow.focus();
-    setTimeout(() => { printWindow.print(); printWindow.close(); }, 500);
+
+    // Print only after every image (logo, barcode, QR) has loaded
+    const imgs = Array.from(printWindow.document.images);
+    Promise.all(imgs.map(img => img.complete ? Promise.resolve() :
+        new Promise(res => { img.onload = res; img.onerror = res; })))
+    .then(() => setTimeout(() => { printWindow.print(); printWindow.close(); }, 200));
 }
 
 let html5QrcodeScanner = null;
 
 function openScanner() {
     document.getElementById('scannerModal').style.display = 'flex';
-    
+
     if (html5QrcodeScanner) {
         html5QrcodeScanner.clear().catch(err => console.error(err));
     }
 
-    html5QrcodeScanner = new Html5QrcodeScanner("reader", { 
-        fps: 10, 
-        qrbox: { width: 250, height: 250 } 
+    html5QrcodeScanner = new Html5QrcodeScanner("reader", {
+        fps: 10,
+        // wide box so 1D barcodes fit as well as QR codes
+        qrbox: (w, h) => ({ width: Math.floor(w * 0.85), height: Math.floor(Math.min(w, h) * 0.6) })
     }, false);
-    
+
     html5QrcodeScanner.render(onScanSuccess, (error) => {});
 }
 
@@ -283,7 +330,7 @@ function showVerificationDetails(matchedProduct) {
         html += `<p style="font-size:11px; margin-top:0;">${matchedProduct.address}</p>`;
     }
     html += `<table style="width: 100%; border-collapse: collapse; text-align: left; margin-top: 15px; font-size:13px;" border="1" cellpadding="6">`;
-    
+
     for (let key in matchedProduct) {
         if (key !== 'manufacturer' && key !== 'address') {
             let formattedKey = key.replace(/([A-Z])/g, ' $1').toUpperCase();
@@ -295,13 +342,23 @@ function showVerificationDetails(matchedProduct) {
     document.getElementById('verificationPage').style.display = 'block';
 }
 
+// Get the batch number from a scanned QR link or a plain barcode
+function extractBatch(text) {
+    const t = text.trim();
+    try {
+        const u = new URL(t);
+        const b = u.searchParams.get('batch');   // decodes %2F back to "/"
+        if (b) return b;
+    } catch (e) { /* not a URL -> plain barcode */ }
+    return t;
+}
+
 function onScanSuccess(decodedText) {
     closeScanner();
-    
-    const cleanText = decodedText.trim();
-    // Directly match scanned barcode string or QR link against batch numbers
-    const matchedProduct = products.find(p => cleanText === p.batchNo || cleanText.includes(p.batchNo));
-    
+
+    const batch = extractBatch(decodedText);
+    const matchedProduct = products.find(p => p.batchNo === batch);
+
     if (matchedProduct) {
         showVerificationDetails(matchedProduct);
     } else {
@@ -313,8 +370,8 @@ function onScanSuccess(decodedText) {
 if (window.location.search.includes('verify=true')) {
     const urlParams = new URLSearchParams(window.location.search);
     const batch = urlParams.get('batch');
-    const matchedProduct = products.find(p => p.batchNo === batch) || products[0];
-    showVerificationDetails(matchedProduct);
+    const matchedProduct = products.find(p => p.batchNo === batch);
+    if (matchedProduct) showVerificationDetails(matchedProduct);
 }
 
 window.onload = () => generateAllCodes('qrcode');
