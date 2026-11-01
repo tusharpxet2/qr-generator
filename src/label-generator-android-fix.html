@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scorpion Containers - Multi-Product Label Generator</title>
+    <!-- CDN Libraries for Barcode, QR Code & Scanner -->
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <!-- bwip-js: draws QR codes and 2D barcodes (Data Matrix) -->
+    <script src="https://cdn.jsdelivr.net/npm/bwip-js@4/dist/bwip-js-min.js"></script>
+
+    <style>
+        :root { --brand-red: #d32f2f; --bg-gray: #f4f6f8; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--bg-gray); margin: 0; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; background: #fff; padding: 25px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .header { text-align: center; border-bottom: 2px solid var(--brand-red); padding-bottom: 15px; margin-bottom: 20px; }
+        .app-logo { max-height: 50px; object-fit: contain; }
+        .controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; background: #f9f9f9; padding: 15px; border-radius: 6px; margin-bottom: 20px; }
+        label { font-weight: bold; font-size: 14px; display: block; margin-bottom: 5px; }
+        select, button { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
+        button { background: var(--brand-red); color: white; border: none; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        button:hover { opacity: 0.9; }
+
+        .output-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(520px, 1fr)); gap: 20px; margin-top: 20px; }
+        .card { border: 1px solid #ddd; border-radius: 6px; padding: 20px; text-align: center; background: #fff; box-sizing: border-box; }
+        .card-title { font-size: 15px; font-weight: bold; color: #333; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px; }
+
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); justify-content: center; align-items: center; z-index: 1000; }
+        .modal-content { background: white; padding: 20px; border-radius: 8px; width: 90%; max-width: 500px; text-align: center; }
+        #reader { width: 100%; }
+    </style>
+
+    <!-- LABEL STYLES: used on screen AND copied into the print window, so both look the same -->
+    <style id="labelStyles">
+        .printable-label { border: 2px solid #000; padding: 16px; text-align: left; font-family: Arial, sans-serif; font-size: 13px; background: #fff; display: inline-block; width: 500px; max-width: 100%; box-sizing: border-box; }
+        .label-top-bar { display: flex; align-items: center; border-bottom: 1px solid #000; padding-bottom: 8px; margin-bottom: 10px; gap: 12px; }
+        .label-logo { height: 40px; width: auto; object-fit: contain; }
+        .label-header-text { flex-grow: 1; text-align: center; }
+        .label-title { font-weight: bold; font-size: 13.5px; text-transform: uppercase; margin: 0; }
+        .label-sub { font-size: 8.5px; margin: 0; color: #333; }
+        .label-row { display: flex; justify-content: space-between; margin-bottom: 6px; }
+        .label-key { font-weight: bold; }
+        .code-container { text-align: center; margin-top: 15px; display: flex; justify-content: center; }
+        /* Do NOT shrink codes (shrinking makes them unscannable) - only stop them overflowing the label */
+        .code-container img { display: block; max-width: 100%; height: auto; image-rendering: pixelated; }
+        /* qrcodejs creates a hidden canvas + a visible img; keep only the img */
+        .code-container canvas { display: none !important; }
+        /* White border around the QR code (quiet zone) */
+        .code-container[data-type="qrcode"] img { padding: 10px; background: #fff; }
+    </style>
+
+    <!-- PRINTING: prints from the same page (no popup window) - works on Android Chrome and iPhone -->
+    <style>
+        #printArea { display: none; }
+        @media print {
+            @page { margin: 5mm; }
+            html, body { background: #fff !important; margin: 0 !important; padding: 0 !important; }
+            body > *:not(#printArea) { display: none !important; }
+            #printArea { display: block !important; }
+            #printArea, #printArea * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .printable-label { page-break-inside: avoid; break-inside: avoid; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <img src="images/logo.png" alt="Scorpion Logo" class="app-logo">
+        <h2>Barcode/Qr-Code Verification Label Generator</h2>
+    </div>
+
+    <div class="controls">
+        <div>
+            <label>Select Format Type</label>
+            <select id="printFormat" onchange="refreshAllCodes()">
+                <option value="1">Full Label + Code Details</option>
+                <option value="2">Code Only</option>
+            </select>
+        </div>
+        <div>
+            <label>Generate Action Type</label>
+            <div style="display: flex; gap: 10px;">
+                <button onclick="generateAllCodes('barcode')">1D Barcode</button>
+                <button onclick="generateAllCodes('datamatrix')" style="background:#1565c0;">2D Barcode</button>
+                <button onclick="generateAllCodes('qrcode')">QR Code</button>
+            </div>
+        </div>
+        <div>
+            <label>Camera Test</label>
+            <button onclick="openScanner()" style="background: #2e7d32;">📷 Open Scanner</button>
+        </div>
+    </div>
+
+    <div class="output-grid">
+        <!-- Product 1 Card -->
+        <div class="card">
+            <div class="card-title">Product 1: 200 ML Round PET Bottle</div>
+            <div id="wrapper1"></div>
+            <br>
+            <button onclick="printSection('wrapper1')" style="margin-top: 15px; width: auto; padding: 8px 20px;">Print Label 1</button>
+        </div>
+
+        <!-- Product 2 Card -->
+        <div class="card">
+            <div class="card-title">Product 2: 20 ML Joy PP Bottle</div>
+            <div id="wrapper2"></div>
+            <br>
+            <button onclick="printSection('wrapper2')" style="margin-top: 15px; width: auto; padding: 8px 20px;">Print Label 2</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal" id="scannerModal">
+    <div class="modal-content">
+        <h3>Scan Barcode or QR Code</h3>
+        <div id="reader"></div>
+        <button onclick="closeScanner()" style="margin-top: 15px; background: #666;">Close Scanner</button>
+    </div>
+</div>
+
+<div id="verificationPage" style="display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:white; overflow-y:auto; padding: 20px; z-index: 2000; box-sizing: border-box;">
+    <div style="max-width: 600px; margin: 0 auto; text-align: center; border: 1px solid #ccc; padding: 20px; border-radius: 8px;">
+        <img src="images/logo.png" alt="Scorpion Logo" style="max-height: 50px; margin-bottom: 10px;">
+        <h2 style="color: #2e7d32;">✔ Verified Product</h2>
+        <hr>
+        <div id="verificationDetails"></div>
+        <br>
+        <button onclick="document.getElementById('verificationPage').style.display='none'">Back to Main Page</button>
+    </div>
+</div>
+
+<!-- The label to print is copied here just before printing -->
+<div id="printArea"></div>
+
+<script>
+const products = [
+    {
+        manufacturer: "SCORPION CONTAINERS (P) LTD",
+        address: "Khasra No -1570/3, VPO-Thana, Tehsil-Nalagarh, Distt-Solan (H.P.)",
+        srNo: "02",
+        productName: "200 ML X 28MM ROUND PET BOTTLE",
+        colour: "AMBER",
+        shift: "A",
+        date: "26-10-2026",
+        batchNo: "SCPBD/04526-10",
+        packing: "36 x 8 = 288 NOS",
+        packerName: "PRADEEP",
+        shiftIncharge: "VINOD KUMAR",
+        qaIncharge: "JITENDRA",
+        customerCode: "1049847",
+        partCode: "FG001690"
+    },
+    {
+        manufacturer: "SCORPION CONTAINERS (P) LTD",
+        address: "",
+        productName: "20 ML JOY PP BOTTLE",
+        colour: "IVORY",
+        qty: "1000 NOS",
+        shift: "B",
+        date: "28-10-2026",
+        batchNo: "SCPPB/01326-03",
+        shiftInc: "VIJAY KUMAR",
+        qcInch: "SUDHEER",
+        packer: "DHANI RAM"
+    }
+];
+
+let lastType = 'qrcode';
+
+function getTargetURL(batchNo) {
+    return window.location.href.split('?')[0] + "?verify=true&batch=" + encodeURIComponent(batchNo);
+}
+
+function renderLabelHTML(prod, index, codeElementId, showFullDetails) {
+    if (!showFullDetails) {
+        return `
+            <div class="printable-label" style="text-align:center; padding: 30px;">
+                <div class="code-container" id="${codeElementId}"></div>
+            </div>`;
+    }
+
+    if (index === 0) {
+        return `
+            <div class="printable-label">
+                <div class="label-top-bar">
+                    <img src="images/logo.png" alt="Logo" class="label-logo">
+                    <div class="label-header-text">
+                        <p class="label-title">${prod.manufacturer}</p>
+                        <p class="label-sub">${prod.address}</p>
+                    </div>
+                </div>
+                <div style="text-align: right; font-size: 10px; margin-bottom: 4px; font-weight: bold;">Sr.No - ${prod.srNo}</div>
+                <div class="label-row"><span class="label-key">Product Name :</span> <span>${prod.productName}</span></div>
+                <div class="label-row"><span class="label-key">Colour :</span> <span>${prod.colour}</span></div>
+                <div class="label-row"><span class="label-key">Shift :</span> <span>${prod.shift}</span></div>
+                <div class="label-row"><span class="label-key">Date :</span> <span>${prod.date}</span></div>
+                <div class="label-row"><span class="label-key">Batch No :</span> <span>${prod.batchNo}</span></div>
+                <div class="label-row"><span class="label-key">Packing :</span> <span>${prod.packing}</span></div>
+                <div class="label-row"><span class="label-key">Packer's Name :</span> <span>${prod.packerName}</span></div>
+                <div class="label-row"><span class="label-key">Shift Incharge :</span> <span>${prod.shiftIncharge}</span></div>
+                <div class="label-row"><span class="label-key">QA Incharge :</span> <span>${prod.qaIncharge}</span></div>
+                <div class="label-row"><span class="label-key">CUSTOMER CODE :</span> <span>${prod.customerCode}</span></div>
+                <div class="label-row"><span class="label-key">PART CODE :</span> <span>${prod.partCode}</span></div>
+                <div class="code-container" id="${codeElementId}"></div>
+            </div>
+        `;
+    } else {
+        return `
+            <div class="printable-label">
+                <div class="label-top-bar">
+                    <img src="images/logo.png" alt="Logo" class="label-logo">
+                    <div class="label-header-text">
+                        <p class="label-title">${prod.manufacturer}</p>
+                    </div>
+                </div>
+                <div class="label-row"><span class="label-key">PRODUCT :</span> <span>${prod.productName}</span></div>
+                <div class="label-row"><span class="label-key">COLOUR :</span> <span>${prod.colour}</span></div>
+                <div class="label-row"><span class="label-key">QTY :</span> <span>${prod.qty}</span></div>
+                <div class="label-row"><span class="label-key">SHIFT :</span> <span>${prod.shift}</span></div>
+                <div class="label-row"><span class="label-key">DATE :</span> <span>${prod.date}</span></div>
+                <div class="label-row"><span class="label-key">BATCH NO :</span> <span>${prod.batchNo}</span></div>
+                <div class="label-row"><span class="label-key">SHIFT INC :</span> <span>${prod.shiftInc}</span></div>
+                <div class="label-row"><span class="label-key">QC INCH :</span> <span>${prod.qcInch}</span></div>
+                <div class="label-row"><span class="label-key">PACKER :</span> <span>${prod.packer}</span></div>
+                <div class="code-container" id="${codeElementId}"></div>
+            </div>
+        `;
+    }
+}
+
+// FIX: barcode is drawn into an <img> (not a <canvas>), so it is copied to the print page
+function makeBarcode(target, text) {
+    const img = document.createElement('img');
+    target.appendChild(img);
+    JsBarcode(img, text, {
+        format: "CODE128",
+        width: 2,          // whole-pixel bars print sharp (1.5 was blurry)
+        height: 50,
+        fontSize: 12,
+        displayValue: true,
+        margin: 10,        // white space on both sides so scanners can read it
+        background: "#ffffff",
+        lineColor: "#000000"
+    });
+}
+
+// Names shown for each field inside the 2D barcode
+const FIELD_LABELS = {
+    srNo: "SR NO", productName: "PRODUCT", colour: "COLOUR", qty: "QTY", packing: "PACKING",
+    shift: "SHIFT", date: "DATE", batchNo: "BATCH NO", packerName: "PACKER", packer: "PACKER",
+    shiftIncharge: "SHIFT INCHARGE", shiftInc: "SHIFT INCHARGE", qaIncharge: "QA INCHARGE",
+    qcInch: "QC INCHARGE", customerCode: "CUSTOMER CODE", partCode: "PART CODE"
+};
+
+// What goes INSIDE the 2D barcode: verification link + all label details
+function build2DText(prod) {
+    const lines = [getTargetURL(prod.batchNo), prod.manufacturer];
+    for (const key in FIELD_LABELS) {
+        if (prod[key]) lines.push(FIELD_LABELS[key] + ": " + prod[key]);
+    }
+    return lines.join("\n");
+}
+
+// NEW: 2D barcode (Data Matrix). Drawn on a canvas, then turned into an <img> so it prints.
+function makeDataMatrix(target, text) {
+    const canvas = document.createElement('canvas');
+    try {
+        bwipjs.toCanvas(canvas, {
+            bcid: 'datamatrix',
+            text: text,
+            scale: 3,               // 3 px per square - sharp on screen and paper
+            paddingwidth: 4,        // white border (quiet zone)
+            paddingheight: 4,
+            backgroundcolor: 'FFFFFF'
+        });
+        const img = document.createElement('img');
+        img.src = canvas.toDataURL('image/png');
+        target.appendChild(img);
+    } catch (e) {
+        target.innerHTML = '<span style="color:red;">2D barcode error: ' + e + '</span>';
+    }
+}
+
+// FIX: QR code drawn with bwip-js (the old qrcodejs library breaks on modern Android phones)
+function makeQR(target, text) {
+    const canvas = document.createElement('canvas');
+    try {
+        bwipjs.toCanvas(canvas, {
+            bcid: 'qrcode',
+            text: text,
+            eclevel: 'M',
+            scale: 4,               // 4 px per square
+            paddingwidth: 4,        // white border (quiet zone)
+            paddingheight: 4,
+            backgroundcolor: 'FFFFFF'
+        });
+        const img = document.createElement('img');
+        img.src = canvas.toDataURL('image/png');
+        img.style.width = '170px';  // fixed print size (~45 mm)
+        target.appendChild(img);
+    } catch (e) {
+        target.innerHTML = '<span style="color:red;">QR code error: ' + e + '</span>';
+    }
+}
+
+function generateAllCodes(type) {
+    lastType = type;
+    const isFullFormat = (document.getElementById('printFormat').value === "1");
+
+    document.getElementById('wrapper1').innerHTML = renderLabelHTML(products[0], 0, 'targetCode1', isFullFormat);
+    document.getElementById('wrapper2').innerHTML = renderLabelHTML(products[1], 1, 'targetCode2', isFullFormat);
+
+    const t1 = document.getElementById('targetCode1');
+    const t2 = document.getElementById('targetCode2');
+    t1.dataset.type = type;
+    t2.dataset.type = type;
+
+    if (type === 'qrcode') {
+        makeQR(t1, getTargetURL(products[0].batchNo));
+        makeQR(t2, getTargetURL(products[1].batchNo));
+    } else if (type === 'datamatrix') {
+        makeDataMatrix(t1, build2DText(products[0]));
+        makeDataMatrix(t2, build2DText(products[1]));
+    } else {
+        makeBarcode(t1, products[0].batchNo);
+        makeBarcode(t2, products[1].batchNo);
+    }
+}
+
+function refreshAllCodes() {
+    generateAllCodes(lastType);
+}
+
+// FIX for Android: print from the SAME page instead of a popup window.
+// (On Android, print() does not wait, so the old popup closed before the codes were drawn.)
+function printSection(wrapperId) {
+    const area = document.getElementById('printArea');
+    area.innerHTML = document.getElementById(wrapperId).innerHTML;
+
+    // Wait until every image (logo, barcode, QR) is fully loaded AND decoded
+    const imgs = Array.from(area.querySelectorAll('img'));
+    Promise.all(imgs.map(img => {
+        const loaded = img.complete ? Promise.resolve()
+            : new Promise(res => { img.onload = res; img.onerror = res; });
+        return loaded.then(() => (img.decode ? img.decode().catch(() => {}) : null));
+    }))
+    .then(() => setTimeout(() => window.print(), 300));
+}
+
+let html5QrcodeScanner = null;
+
+function openScanner() {
+    document.getElementById('scannerModal').style.display = 'flex';
+
+    if (html5QrcodeScanner) {
+        html5QrcodeScanner.clear().catch(err => console.error(err));
+    }
+
+    html5QrcodeScanner = new Html5QrcodeScanner("reader", {
+        fps: 10,
+        // wide box so 1D barcodes fit as well as QR codes
+        qrbox: (w, h) => ({ width: Math.floor(w * 0.85), height: Math.floor(Math.min(w, h) * 0.6) }),
+        // Read 1D barcodes, QR codes and 2D Data Matrix codes
+        formatsToSupport: [
+            Html5QrcodeSupportedFormats.QR_CODE,
+            Html5QrcodeSupportedFormats.DATA_MATRIX,
+            Html5QrcodeSupportedFormats.CODE_128
+        ],
+        // Use the phone/browser's built-in fast barcode reader when available (better for Data Matrix)
+        experimentalFeatures: { useBarCodeDetectorIfSupported: true }
+    }, false);
+
+    html5QrcodeScanner.render(onScanSuccess, (error) => {});
+}
+
+function closeScanner() {
+    if (html5QrcodeScanner) {
+        html5QrcodeScanner.clear().catch(error => console.error("Failed to clear scanner", error));
+        html5QrcodeScanner = null;
+    }
+    document.getElementById('scannerModal').style.display = 'none';
+}
+
+function showVerificationDetails(matchedProduct) {
+    let html = `<h3 style="margin-bottom:5px;">${matchedProduct.manufacturer}</h3>`;
+    if (matchedProduct.address) {
+        html += `<p style="font-size:11px; margin-top:0;">${matchedProduct.address}</p>`;
+    }
+    html += `<table style="width: 100%; border-collapse: collapse; text-align: left; margin-top: 15px; font-size:13px;" border="1" cellpadding="6">`;
+
+    for (let key in matchedProduct) {
+        if (key !== 'manufacturer' && key !== 'address') {
+            let formattedKey = key.replace(/([A-Z])/g, ' $1').toUpperCase();
+            html += `<tr><th>${formattedKey}</th><td>${matchedProduct[key]}</td></tr>`;
+        }
+    }
+    html += `</table>`;
+    document.getElementById('verificationDetails').innerHTML = html;
+    document.getElementById('verificationPage').style.display = 'block';
+}
+
+// Get the batch number from a scanned QR link, a 2D barcode (link + details) or a plain barcode
+function extractBatch(text) {
+    const t = text.trim();
+    // 2D barcode / any text containing "batch=..." in a link
+    const linkMatch = t.match(/[?&]batch=([^&\s]+)/);
+    if (linkMatch) return decodeURIComponent(linkMatch[1]);
+    // Text containing "BATCH NO: ..."
+    const lineMatch = t.match(/BATCH NO:\s*(.+)/i);
+    if (lineMatch) return lineMatch[1].trim();
+    try {
+        const u = new URL(t);
+        const b = u.searchParams.get('batch');   // decodes %2F back to "/"
+        if (b) return b;
+    } catch (e) { /* not a URL -> plain barcode */ }
+    return t;
+}
+
+function onScanSuccess(decodedText) {
+    closeScanner();
+
+    const batch = extractBatch(decodedText);
+    const matchedProduct = products.find(p => p.batchNo === batch);
+
+    if (matchedProduct) {
+        showVerificationDetails(matchedProduct);
+    } else {
+        document.getElementById('verificationDetails').innerHTML = `<p>Scanned Raw Code: <strong>${decodedText}</strong></p>`;
+        document.getElementById('verificationPage').style.display = 'block';
+    }
+}
+
+if (window.location.search.includes('verify=true')) {
+    const urlParams = new URLSearchParams(window.location.search);
+    const batch = urlParams.get('batch');
+    const matchedProduct = products.find(p => p.batchNo === batch);
+    if (matchedProduct) showVerificationDetails(matchedProduct);
+}
+
+window.onload = () => generateAllCodes('qrcode');
+</script>
+</body>
+</html>

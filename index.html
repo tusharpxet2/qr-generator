@@ -6,8 +6,9 @@
     <title>Scorpion Containers - Multi-Product Label Generator</title>
     <!-- CDN Libraries for Barcode, QR Code & Scanner -->
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
+    <!-- bwip-js: draws QR codes and 2D barcodes (Data Matrix) -->
+    <script src="https://cdn.jsdelivr.net/npm/bwip-js@4/dist/bwip-js-min.js"></script>
 
     <style>
         :root { --brand-red: #d32f2f; --bg-gray: #f4f6f8; }
@@ -48,6 +49,19 @@
         /* White border around the QR code (quiet zone) */
         .code-container[data-type="qrcode"] img { padding: 10px; background: #fff; }
     </style>
+
+    <!-- PRINTING: prints from the same page (no popup window) - works on Android Chrome and iPhone -->
+    <style>
+        #printArea { display: none; }
+        @media print {
+            @page { margin: 5mm; }
+            html, body { background: #fff !important; margin: 0 !important; padding: 0 !important; }
+            body > *:not(#printArea) { display: none !important; }
+            #printArea { display: block !important; }
+            #printArea, #printArea * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .printable-label { page-break-inside: avoid; break-inside: avoid; }
+        }
+    </style>
 </head>
 <body>
 
@@ -68,8 +82,9 @@
         <div>
             <label>Generate Action Type</label>
             <div style="display: flex; gap: 10px;">
-                <button onclick="generateAllCodes('barcode')">Generate Barcodes</button>
-                <button onclick="generateAllCodes('qrcode')">Generate QR Codes</button>
+                <button onclick="generateAllCodes('barcode')">1D Barcode</button>
+                <button onclick="generateAllCodes('datamatrix')" style="background:#1565c0;">2D Barcode</button>
+                <button onclick="generateAllCodes('qrcode')">QR Code</button>
             </div>
         </div>
         <div>
@@ -115,6 +130,9 @@
         <button onclick="document.getElementById('verificationPage').style.display='none'">Back to Main Page</button>
     </div>
 </div>
+
+<!-- The label to print is copied here just before printing -->
+<div id="printArea"></div>
 
 <script>
 const products = [
@@ -228,15 +246,63 @@ function makeBarcode(target, text) {
     });
 }
 
+// Names shown for each field inside the 2D barcode
+const FIELD_LABELS = {
+    srNo: "SR NO", productName: "PRODUCT", colour: "COLOUR", qty: "QTY", packing: "PACKING",
+    shift: "SHIFT", date: "DATE", batchNo: "BATCH NO", packerName: "PACKER", packer: "PACKER",
+    shiftIncharge: "SHIFT INCHARGE", shiftInc: "SHIFT INCHARGE", qaIncharge: "QA INCHARGE",
+    qcInch: "QC INCHARGE", customerCode: "CUSTOMER CODE", partCode: "PART CODE"
+};
+
+// What goes INSIDE the 2D barcode: verification link + all label details
+function build2DText(prod) {
+    const lines = [getTargetURL(prod.batchNo), prod.manufacturer];
+    for (const key in FIELD_LABELS) {
+        if (prod[key]) lines.push(FIELD_LABELS[key] + ": " + prod[key]);
+    }
+    return lines.join("\n");
+}
+
+// NEW: 2D barcode (Data Matrix). Drawn on a canvas, then turned into an <img> so it prints.
+function makeDataMatrix(target, text) {
+    const canvas = document.createElement('canvas');
+    try {
+        bwipjs.toCanvas(canvas, {
+            bcid: 'datamatrix',
+            text: text,
+            scale: 3,               // 3 px per square - sharp on screen and paper
+            paddingwidth: 4,        // white border (quiet zone)
+            paddingheight: 4,
+            backgroundcolor: 'FFFFFF'
+        });
+        const img = document.createElement('img');
+        img.src = canvas.toDataURL('image/png');
+        target.appendChild(img);
+    } catch (e) {
+        target.innerHTML = '<span style="color:red;">2D barcode error: ' + e + '</span>';
+    }
+}
+
+// FIX: QR code drawn with bwip-js (the old qrcodejs library breaks on modern Android phones)
 function makeQR(target, text) {
-    new QRCode(target, {
-        text: text,
-        width: 150,
-        height: 150,
-        colorDark: "#000000",
-        colorLight: "#ffffff",
-        correctLevel: QRCode.CorrectLevel.M
-    });
+    const canvas = document.createElement('canvas');
+    try {
+        bwipjs.toCanvas(canvas, {
+            bcid: 'qrcode',
+            text: text,
+            eclevel: 'M',
+            scale: 4,               // 4 px per square
+            paddingwidth: 4,        // white border (quiet zone)
+            paddingheight: 4,
+            backgroundcolor: 'FFFFFF'
+        });
+        const img = document.createElement('img');
+        img.src = canvas.toDataURL('image/png');
+        img.style.width = '170px';  // fixed print size (~45 mm)
+        target.appendChild(img);
+    } catch (e) {
+        target.innerHTML = '<span style="color:red;">QR code error: ' + e + '</span>';
+    }
 }
 
 function generateAllCodes(type) {
@@ -254,6 +320,9 @@ function generateAllCodes(type) {
     if (type === 'qrcode') {
         makeQR(t1, getTargetURL(products[0].batchNo));
         makeQR(t2, getTargetURL(products[1].batchNo));
+    } else if (type === 'datamatrix') {
+        makeDataMatrix(t1, build2DText(products[0]));
+        makeDataMatrix(t2, build2DText(products[1]));
     } else {
         makeBarcode(t1, products[0].batchNo);
         makeBarcode(t2, products[1].batchNo);
@@ -264,38 +333,20 @@ function refreshAllCodes() {
     generateAllCodes(lastType);
 }
 
-// FIX: copy the label safely, turn any canvas into an image, and wait for images before printing
+// FIX for Android: print from the SAME page instead of a popup window.
+// (On Android, print() does not wait, so the old popup closed before the codes were drawn.)
 function printSection(wrapperId) {
-    const original = document.getElementById(wrapperId);
-    const clone = original.cloneNode(true);
+    const area = document.getElementById('printArea');
+    area.innerHTML = document.getElementById(wrapperId).innerHTML;
 
-    // Safety net: if any canvas exists, replace it with an image of its drawing
-    const srcCanvases = original.querySelectorAll('canvas');
-    clone.querySelectorAll('canvas').forEach((c, i) => {
-        if (getComputedStyle(srcCanvases[i]).display === 'none') { c.remove(); return; }
-        const img = document.createElement('img');
-        img.src = srcCanvases[i].toDataURL('image/png');
-        c.replaceWith(img);
-    });
-
-    // Make image paths absolute (the print window has no base folder, so "images/logo.png" would break)
-    clone.querySelectorAll('img').forEach(img => { if (img.src) img.setAttribute('src', img.src); });
-
-    const labelCSS = document.getElementById('labelStyles').innerHTML;
-    const printWindow = window.open('', '', 'height=700,width=800');
-    printWindow.document.write('<html><head><title>Print Label</title>');
-    printWindow.document.write('<style>body{font-family:Arial;padding:15px;margin:0;} @page{margin:5mm;}' + labelCSS + '</style>');
-    printWindow.document.write('</head><body>');
-    printWindow.document.write(clone.innerHTML);
-    printWindow.document.write('</body></html>');
-    printWindow.document.close();
-    printWindow.focus();
-
-    // Print only after every image (logo, barcode, QR) has loaded
-    const imgs = Array.from(printWindow.document.images);
-    Promise.all(imgs.map(img => img.complete ? Promise.resolve() :
-        new Promise(res => { img.onload = res; img.onerror = res; })))
-    .then(() => setTimeout(() => { printWindow.print(); printWindow.close(); }, 200));
+    // Wait until every image (logo, barcode, QR) is fully loaded AND decoded
+    const imgs = Array.from(area.querySelectorAll('img'));
+    Promise.all(imgs.map(img => {
+        const loaded = img.complete ? Promise.resolve()
+            : new Promise(res => { img.onload = res; img.onerror = res; });
+        return loaded.then(() => (img.decode ? img.decode().catch(() => {}) : null));
+    }))
+    .then(() => setTimeout(() => window.print(), 300));
 }
 
 let html5QrcodeScanner = null;
@@ -310,7 +361,15 @@ function openScanner() {
     html5QrcodeScanner = new Html5QrcodeScanner("reader", {
         fps: 10,
         // wide box so 1D barcodes fit as well as QR codes
-        qrbox: (w, h) => ({ width: Math.floor(w * 0.85), height: Math.floor(Math.min(w, h) * 0.6) })
+        qrbox: (w, h) => ({ width: Math.floor(w * 0.85), height: Math.floor(Math.min(w, h) * 0.6) }),
+        // Read 1D barcodes, QR codes and 2D Data Matrix codes
+        formatsToSupport: [
+            Html5QrcodeSupportedFormats.QR_CODE,
+            Html5QrcodeSupportedFormats.DATA_MATRIX,
+            Html5QrcodeSupportedFormats.CODE_128
+        ],
+        // Use the phone/browser's built-in fast barcode reader when available (better for Data Matrix)
+        experimentalFeatures: { useBarCodeDetectorIfSupported: true }
     }, false);
 
     html5QrcodeScanner.render(onScanSuccess, (error) => {});
@@ -342,9 +401,15 @@ function showVerificationDetails(matchedProduct) {
     document.getElementById('verificationPage').style.display = 'block';
 }
 
-// Get the batch number from a scanned QR link or a plain barcode
+// Get the batch number from a scanned QR link, a 2D barcode (link + details) or a plain barcode
 function extractBatch(text) {
     const t = text.trim();
+    // 2D barcode / any text containing "batch=..." in a link
+    const linkMatch = t.match(/[?&]batch=([^&\s]+)/);
+    if (linkMatch) return decodeURIComponent(linkMatch[1]);
+    // Text containing "BATCH NO: ..."
+    const lineMatch = t.match(/BATCH NO:\s*(.+)/i);
+    if (lineMatch) return lineMatch[1].trim();
     try {
         const u = new URL(t);
         const b = u.searchParams.get('batch');   // decodes %2F back to "/"
